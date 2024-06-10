@@ -2,18 +2,22 @@ import requests
 from bs4 import BeautifulSoup
 
 # URL of the page to be scraped
-url = "https://results.eci.gov.in/PcResultGenJune2024/candidateswise-S018.htm"
+url = "https://results.eci.gov.in/PcResultGenJune2024/ConstituencywiseS018.htm"
 
 # Make a request to the website
 response = requests.get(url)
 
 # Check if the request was successful
 if response.status_code == 200:
+    # Print the HTML content of the page for debugging
+    html_content = response.content
+    print(html_content)  # Uncomment this to see the raw HTML content
+
     # Parse the HTML content of the page
-    soup = BeautifulSoup(response.content, 'html.parser')
+    soup = BeautifulSoup(html_content, 'html.parser')
 
     # Find the table containing the data
-    table = soup.find('table', {'class': 'table-party'})
+    table = soup.find('table')  # Start with finding any table
 
     # Check if the table exists
     if table:
