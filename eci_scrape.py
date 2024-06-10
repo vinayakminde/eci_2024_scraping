@@ -23,7 +23,7 @@ if response.status_code == 200:
             cols = row.find_all('td')
             # Get the text from each column and print it
             if cols:
-                cols = [col.text.strip() for col in cols] #smaple change
+                cols = [col.text.strip() for col in cols]
                 print(cols)
     else:
         print("Table not found")
