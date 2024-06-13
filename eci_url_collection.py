@@ -18,19 +18,43 @@ if response.status_code == 200:
 # Find the table containing the election results
 table = soup.find('table', {'class': 'table'}) 
 
+# List to store URLs
+won_links = []
+constituency_links = []
+
+"""
 # Path to the desktop
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 file_path = os.path.join(desktop_path, "ECI 2024 Party Wise Results.txt")
 
 # Open the file to write
 with open(file_path, 'w') as file:
-    # Loop through each row in the table
+"""
+
+# Loop through each row in the table
+for row in table.find_all('tr')[1:]:  # Skipping the header row
+    cells = row.find_all('td')
+    if len(cells) > 0:
+        won_link = cells[1].find('a')['href'] if cells[1].find('a') else None
+        if won_link:
+            full_link = base_url + won_link
+            won_links.append(full_link)
+
+print(f"Collected {len(won_links)} links.")
+
+# Scraping url for each party to get list of constituency links
+for link in won_links:
+    response = requests.get(link)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    # Find the table containing the lsit of winning candidates
+    table = soup.find('table', {'class': 'table table-striped table-bordered'}) 
     for row in table.find_all('tr')[1:]:  # Skipping the header row
         cells = row.find_all('td')
         if len(cells) > 0:
-            party_name = cells[0].text.strip()
-            won_link = cells[1].find('a')['href'] if cells[1].find('a') else None
-            if won_link:
-                full_link = base_url + won_link
-                file.write(f"Won Link: {full_link}\n")
-print(f"Links saved to {file_path}")
+            constituency_link = cells[1].find('a')['href'] if cells[1].find('a') else None
+            if constituency_link:
+                full_link2 = base_url + constituency_link
+        constituency_links.append(full_link2)
+
+print(f"Collected {len(constituency_links)} links.")
+
