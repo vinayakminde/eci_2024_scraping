@@ -1,62 +1,77 @@
 import requests
 from bs4 import BeautifulSoup
+import json
 import os
 import pandas as pd
 
-# URL of the page to be scraped
-url = "https://results.eci.gov.in/PcResultGenJune2024/index.htm"
-base_url = "https://results.eci.gov.in/PcResultGenJune2024/"
+## Path to the text file containing the URLs (adjust as needed)
+file_path = os.path.expanduser("~/Desktop/ECI 2024 Party Wise Results.txt")
 
-# Make a request to the website
-response = requests.get(url)
+# Path to the Excel file to save the results (adjust as needed)
+excel_path = os.path.expanduser("~/Desktop/ECI 2024 Party Wise Results.xlsx")
 
-# Check if the request was successful
-if response.status_code == 200:
-    # Parse the HTML content of the page
+# Read URLs from the text file
+with open(file_path, 'r') as file:
+    urls = file.read().splitlines()
+
+# List to store all scraped data
+all_data = []
+
+# Iterate through each URL
+for url in urls:
+    # Send a GET request to the URL
+    response = requests.get(url)
+
+    # Parse the page content
     soup = BeautifulSoup(response.content, 'html.parser')
 
-# Find the table containing the election results
-table = soup.find('table', {'class': 'table'}) 
+     # Extract and process the page title to get the state name
+    page_title = soup.title.string
+    state = page_title.replace("2024 Indian general election in ", "").strip()
 
-# List to store URLs
-won_links = []
-constituency_links = []
+    # Lists to store the scraped data
+    constituencies = []
+    turnouts = []
+
+    # Flag to indicate if the table is found
+    table_found = False
 
 
-# Path to the desktop
-desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-file_path = os.path.join(desktop_path, "ECI 2024 Party Wise Results.txt")
+    # Iterate through all tables on the page
+    for table in soup.find_all('table', {'class': 'wikitable'}):
+        # Find the header row
+        headers = table.find('tr').find_all('th')
+        header_texts = [header.text.strip() for header in headers]
 
+        # Check if both 'Constituency' and 'Turnout' are in the headers
+        if 'Constituency' in header_texts and 'Turnout' in header_texts and 'Winner' in header_texts:
+            constituency_index = header_texts.index('Constituency')
+            turnout_index = header_texts.index('Turnout')
 
-# Loop through each row in the table
-for row in table.find_all('tr')[1:]:  # Skipping the header row
-    cells = row.find_all('td')
-    if len(cells) > 0:
-        won_link = cells[1].find('a')['href'] if cells[1].find('a') else None
-        if won_link:
-            full_link = base_url + won_link
-            won_links.append(full_link)
+            # Iterate through the table rows and extract data
+            for row in table.find_all('tr')[1:]:  # Skip the header row
+                cells = row.find_all('td')
+                if len(cells) > max(constituency_index, turnout_index):  # Ensure the row has enough columns
+                    constituency = cells[constituency_index].text.strip()
+                    turnout = cells[turnout_index].text.strip()
 
-print(f"Collected {len(won_links)} links.")
+                    # Convert turnout to a number with decimal
+                    try:
+                        turnout = float(turnout.replace('%', '').strip())
+                    except ValueError:
+                        turnout = None  # Handle cases where turnout is not a valid number
 
-# Open the file to write
-with open(file_path, 'w') as file:
+                    constituencies.append(constituency)
+                    turnouts.append(turnout)
 
-    # Scraping url for each party to get list of constituency links
-    for link in won_links:
-        response = requests.get(link)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        # Find the table containing the lsit of winning candidates
-        table = soup.find('table', {'class': 'table table-striped table-bordered'}) 
-        for row in table.find_all('tr')[1:]:  # Skipping the header row
-            cells = row.find_all('td')
-            if len(cells) > 0:
-                constituency_link = cells[1].find('a')['href'] if cells[1].find('a') else None
-                if constituency_link:
-                    full_link2 = base_url + constituency_link
-                    new_full_link2 = full_link2.replace("candidateswise-", "Constituencywise")
-            constituency_links.append(new_full_link2)
-            file.write(f"{new_full_link2}\n")
+     # Combine data and add to the all_data list
+    for constituency, turnout in zip(constituencies, turnouts):
+        all_data.append({'State': state, 'Constituency': constituency, 'Turnout': turnout})
 
-print(f"Collected {len(constituency_links)} links.")
+# Create a DataFrame from the collected data
+df = pd.DataFrame(all_data)
 
+# Save the DataFrame to an Excel file
+df.to_excel(excel_path, index=False)
+
+print(f"Data successfully scraped and saved to {excel_path}")
